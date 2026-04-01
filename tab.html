@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
 <title>Time Tracker — Full View</title>
@@ -135,21 +135,21 @@
   <header>
     <div class="logo">time<span>.</span>tracker</div>
     <div class="week-nav">
-      <button id="btnPrevWeek">‹</button>
-      <span class="week-range" id="weekRange">This week</span>
-      <button id="btnNextWeek">›</button>
+      <button id="btnPrevWeek" data-i18n-title="prevWeekTitle">‹</button>
+      <span class="week-range" id="weekRange" data-i18n="thisWeek">This week</span>
+      <button id="btnNextWeek" data-i18n-title="nextWeekTitle">›</button>
     </div>
   </header>
 
   <div class="input-row">
     <div class="input-group">
       <select class="project-select" id="projectSelect"></select>
-      <input class="task-input" id="taskInput" type="text" placeholder="Task name..." />
-      <button class="btn-start" id="btnStart">▶ Start</button>
+      <input class="task-input" id="taskInput" type="text" data-i18n-placeholder="taskPlaceholder" />
+      <button class="btn-start" id="btnStart" data-i18n="startBtn">▶ Start</button>
     </div>
     <div class="input-group">
-      <input class="time-input" id="manualTime" type="text" placeholder="0:00" title="Format H:MM or M" />
-      <button class="btn-add-manual" id="btnAddManual" style="flex: 1">+ Add manual time</button>
+      <input class="time-input" id="manualTime" type="text" placeholder="0:00" data-i18n-title="formatHMTitle" />
+      <button class="btn-add-manual" id="btnAddManual" style="flex: 1" data-i18n="addManualTimeBtn">+ Add manual time</button>
     </div>
   </div>
 
@@ -162,29 +162,29 @@
     <div class="timer-elapsed" id="timerElapsed">00:00:00</div>
   </div>
 
-  <div class="section-label">Weekly summary</div>
+  <div class="section-label" data-i18n="weeklySummary">Weekly summary</div>
   <div class="summary-box" id="weeklySummary"></div>
   <div class="week-total-bar">
-    <span class="week-total-label">Week total</span>
+    <span class="week-total-label" data-i18n="weekTotal">Week total</span>
     <span class="week-total-hours" id="weekTotal">0h 00m</span>
   </div>
 
   <div class="tabs">
-    <button class="tab active" data-tab="week">This week</button>
-    <button class="tab" data-tab="all">All</button>
+    <button class="tab active" data-tab="week" data-i18n="thisWeek">This week</button>
+    <button class="tab" data-tab="all" data-i18n="allTab">All</button>
   </div>
   <div class="tab-content active" id="tab-week"></div>
   <div class="tab-content" id="tab-all"></div>
 
   <div class="project-manager">
-    <div class="section-label" style="margin-top:0">Projects</div>
+    <div class="section-label" style="margin-top:0" data-i18n="projectsTitle">Projects</div>
     <div class="add-project-row">
-      <input class="project-input" id="projectInput" type="text" placeholder="New project..." />
-      <button class="btn-add-proj" id="btnAddProject">+ Add</button>
+      <input class="project-input" id="projectInput" type="text" data-i18n-placeholder="newProjectPlaceholder" />
+      <button class="btn-add-proj" id="btnAddProject" data-i18n="addBtn">+ Add</button>
     </div>
     <div class="projects-list" id="projectsList"></div>
   </div>
-  <footer>data saved locally · private</footer>
+  <footer data-i18n="footerNote">data saved locally · private</footer>
 </div>
 <script src="popup.js"></script>
 </body>

@@ -35,11 +35,11 @@ function isInWeek(ts, offset = 0) {
 }
 
 function weekLabel(offset) {
-  if (offset === 0) return 'This week';
-  if (offset === -1) return 'Last week';
+  if (offset === 0) return chrome.i18n.getMessage('thisWeek');
+  if (offset === -1) return chrome.i18n.getMessage('lastWeek');
   const { start, end } = getWeekBounds(offset);
   const opts = { day: 'numeric', month: 'short' };
-  return `${start.toLocaleDateString('en', opts)} – ${end.toLocaleDateString('en', opts)}`;
+  return `${start.toLocaleDateString(undefined, opts)} – ${end.toLocaleDateString(undefined, opts)}`;
 }
 
 // ---- Format ----
@@ -59,11 +59,11 @@ function fmtHM(ms) {
 }
 
 function fmtTime(ts) {
-  return new Date(ts).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
+  return new Date(ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
 
 function fmtDate(ts) {
-  return new Date(ts).toLocaleDateString('en', { weekday: 'short', day: 'numeric', month: 'short' });
+  return new Date(ts).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
 // ---- Timer ----
@@ -242,7 +242,7 @@ function renderWeeklySummary() {
 
   const container = document.getElementById('weeklySummary');
   if (!rows.length) {
-    container.innerHTML = '<div style="padding:12px 10px;color:var(--muted);font-size:0.72rem;text-align:center">No records</div>';
+    container.innerHTML = `<div style="padding:12px 10px;color:var(--muted);font-size:0.72rem;text-align:center">${chrome.i18n.getMessage('noRecords')}</div>`;
   } else {
     container.innerHTML = rows.map(r => `
       <div class="summary-row">
@@ -267,7 +267,7 @@ function deleteEntry(id) {
 function renderEntries(entries, containerId) {
   const container = document.getElementById(containerId);
   if (!entries.length) {
-    container.innerHTML = '<div class="empty-state">No records</div>';
+    container.innerHTML = `<div class="empty-state">${chrome.i18n.getMessage('noRecords')}</div>`;
     return;
   }
   container.innerHTML = entries.map(e => `
@@ -309,6 +309,26 @@ function openTab() {
 }
 
 // ---- Render ----
+function applyTranslations() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    const msg = chrome.i18n.getMessage(key);
+    if (msg) el.textContent = msg;
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.dataset.i18nPlaceholder;
+    const msg = chrome.i18n.getMessage(key);
+    if (msg) el.placeholder = msg;
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const key = el.dataset.i18nTitle;
+    const msg = chrome.i18n.getMessage(key);
+    if (msg) el.title = msg;
+  });
+  // Update lang attribute to reflect current locale
+  document.documentElement.lang = chrome.i18n.getUILanguage();
+}
+
 function render() {
   renderProjects();
   renderWeeklySummary();
@@ -364,6 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   loadState(() => {
+    applyTranslations();
     render();
     updateTimerUI();
     if (state.timer) startTimerTick();

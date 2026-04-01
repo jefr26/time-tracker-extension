@@ -1,0 +1,23 @@
+{
+  "extensionName": { "message": "Time Tracker" },
+  "extensionDescription": { "message": "Time tracking by tasks and projects, 100% local and private." },
+  "thisWeek": { "message": "This week" },
+  "lastWeek": { "message": "Last week" },
+  "noRecords": { "message": "No records" },
+  "taskPlaceholder": { "message": "Task name..." },
+  "startBtn": { "message": "Start" },
+  "manualEntryBtn": { "message": "Manual Entry" },
+  "addManualTimeBtn": { "message": "Add manual time" },
+  "weeklySummary": { "message": "Weekly summary" },
+  "weekTotal": { "message": "Week total" },
+  "allTab": { "message": "All" },
+  "projectsTitle": { "message": "Projects" },
+  "newProjectPlaceholder": { "message": "New project..." },
+  "addBtn": { "message": "Add" },
+  "footerNote": { "message": "data saved locally · private" },
+  "prevWeekTitle": { "message": "Previous week" },
+  "nextWeekTitle": { "message": "Next week" },
+  "openTabTitle": { "message": "Open in tab" },
+  "startStopTimerTitle": { "message": "Start/Stop Timer" },
+  "formatHMTitle": { "message": "Format H:MM or M" }
+}
