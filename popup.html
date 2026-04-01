@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
 <title>Time Tracker</title>
@@ -249,11 +249,11 @@
 <div class="header">
   <div class="logo">time<span>.</span>tracker</div>
   <div class="header-actions">
-    <button class="btn-icon" title="Previous week" id="btnPrevWeek">‹</button>
-    <span class="week-chip" id="weekRange">This week</span>
-    <button class="btn-icon" title="Next week" id="btnNextWeek">›</button>
-    <button class="btn-icon" title="Projects" id="btnToggleProjects" style="margin-left:4px">⊞</button>
-    <button class="btn-icon" title="Open in tab" id="btnOpenTab">⤢</button>
+    <button class="btn-icon" data-i18n-title="prevWeekTitle" id="btnPrevWeek">‹</button>
+    <span class="week-chip" id="weekRange" data-i18n="thisWeek">This week</span>
+    <button class="btn-icon" data-i18n-title="nextWeekTitle" id="btnNextWeek">›</button>
+    <button class="btn-icon" data-i18n-title="projectsTitle" id="btnToggleProjects" style="margin-left:4px">⊞</button>
+    <button class="btn-icon" data-i18n-title="openTabTitle" id="btnOpenTab">⤢</button>
   </div>
 </div>
 
@@ -262,12 +262,12 @@
   <div class="input-row">
     <div class="input-group">
       <select class="project-select" id="projectSelect"></select>
-      <input class="task-input" id="taskInput" type="text" placeholder="Task..." />
-      <button class="btn-start" id="btnStart" title="Start/Stop Timer">▶</button>
+      <input class="task-input" id="taskInput" type="text" data-i18n-placeholder="taskPlaceholder" />
+      <button class="btn-start" id="btnStart" data-i18n-title="startStopTimerTitle">▶</button>
     </div>
     <div class="input-group">
-      <input class="time-input" id="manualTime" type="text" placeholder="0:00" title="Format H:MM or M" />
-      <button class="btn-add-manual" id="btnAddManual" style="flex: 1">+ Manual Entry</button>
+      <input class="time-input" id="manualTime" type="text" placeholder="0:00" data-i18n-title="formatHMTitle" />
+      <button class="btn-add-manual" id="btnAddManual" style="flex: 1" data-i18n="manualEntryBtn">+ Manual Entry</button>
     </div>
   </div>
 
@@ -282,17 +282,17 @@
   </div>
 
   <!-- Weekly summary -->
-  <div class="section-label">Week</div>
+  <div class="section-label" data-i18n="thisWeek">Week</div>
   <div class="summary-box" id="weeklySummary"></div>
   <div class="week-total-bar">
-    <span class="week-total-label">Total</span>
+    <span class="week-total-label" data-i18n="weekTotal">Total</span>
     <span class="week-total-hours" id="weekTotal">0h 00m</span>
   </div>
 
   <!-- Log -->
   <div class="tabs">
-    <button class="tab active" data-tab="week">This week</button>
-    <button class="tab" data-tab="all">All</button>
+    <button class="tab active" data-tab="week" data-i18n="thisWeek">This week</button>
+    <button class="tab" data-tab="all" data-i18n="allTab">All</button>
   </div>
   <div class="tab-content active" id="tab-week"></div>
   <div class="tab-content" id="tab-all"></div>
@@ -300,10 +300,10 @@
 
 <!-- Projects panel -->
 <div class="projects-panel" id="projectsPanel">
-  <div class="section-label" style="margin-top:0">Projects</div>
+  <div class="section-label" style="margin-top:0" data-i18n="projectsTitle">Projects</div>
   <div class="add-project-row">
-    <input class="project-input" id="projectInput" type="text" placeholder="New project..." />
-    <button class="btn-add-proj" id="btnAddProject">+ Add</button>
+    <input class="project-input" id="projectInput" type="text" data-i18n-placeholder="newProjectPlaceholder" />
+    <button class="btn-add-proj" id="btnAddProject" data-i18n="addBtn">+ Add</button>
   </div>
   <div class="projects-list" id="projectsList"></div>
 </div>
