@@ -52,7 +52,7 @@ function stopTimer() {
   
   logger.log('Timer stopped', { task: state.timer.task, duration });
 
-  if (duration > 5000) { // Min 5 seconds
+  if (duration >= 5000) { // Min 5 seconds
     addEntryToState(state.timer.task, state.timer.project, state.timer.start, now, duration);
   } else {
     logger.log('Entry discarded (too short)');
@@ -91,8 +91,11 @@ function addManualEntry() {
 
   let ms = 0;
   if (timeStr.includes(':')) {
-    const [h, m] = timeStr.split(':').map(Number);
-    if (isNaN(h) || isNaN(m)) return;
+    const parts = timeStr.split(':');
+    if (parts.length !== 2) return;
+    const h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (isNaN(h) || isNaN(m) || h < 0 || m < 0 || m > 59) return;
     ms = (h * 3600 + m * 60) * 1000;
   } else {
     const m = Number(timeStr);
@@ -162,19 +165,29 @@ function renderProjects() {
   const list = document.getElementById('projectsList');
   if (!sel || !list) return;
 
-  sel.innerHTML = state.projects.map(p => `<option value="${p}">${p}</option>`).join('');
+  sel.innerHTML = '';
+  state.projects.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p;
+    opt.textContent = p;
+    sel.appendChild(opt);
+  });
 
-  list.innerHTML = state.projects.map(p => `
-    <div class="project-tag">
-      ${p}
-      ${state.projects.length > 1
-        ? `<button class="btn-remove-project" data-project="${p.replace(/"/g, '&quot;')}">×</button>`
-        : ''}
-    </div>
-  `).join('');
-
-  list.querySelectorAll('.btn-remove-project').forEach(btn => {
-    btn.addEventListener('click', () => removeProject(btn.dataset.project));
+  list.innerHTML = '';
+  state.projects.forEach(p => {
+    const tag = document.createElement('div');
+    tag.className = 'project-tag';
+    tag.textContent = p + ' ';
+    
+    if (state.projects.length > 1) {
+      const btn = document.createElement('button');
+      btn.className = 'btn-remove-project';
+      btn.dataset.project = p;
+      btn.textContent = '×';
+      btn.addEventListener('click', () => removeProject(p));
+      tag.appendChild(btn);
+    }
+    list.appendChild(tag);
   });
 }
 
@@ -212,17 +225,35 @@ function renderWeeklySummary() {
   const totalMs = weekEntries.reduce((s, e) => s + e.duration, 0);
 
   if (!rows.length) {
-    container.innerHTML = `<div style="padding:12px 10px;color:var(--muted);font-size:0.72rem;text-align:center">${chrome.i18n.getMessage('noRecords')}</div>`;
+    container.innerHTML = '';
+    const empty = document.createElement('div');
+    empty.style.cssText = 'padding:12px 10px;color:var(--muted);font-size:0.72rem;text-align:center';
+    empty.textContent = chrome.i18n.getMessage('noRecords');
+    container.appendChild(empty);
   } else {
-    container.innerHTML = rows.map(r => `
-      <div class="summary-row">
-        <div>
-          <div class="summary-project">${r.project}</div>
-          <div style="font-size:0.75rem;margin-top:1px">${r.task}</div>
-        </div>
-        <div class="summary-hours">${utils.fmtHM(r.total)}</div>
-      </div>
-    `).join('');
+    container.innerHTML = '';
+    rows.forEach(r => {
+      const row = document.createElement('div');
+      row.className = 'summary-row';
+      
+      const info = document.createElement('div');
+      const proj = document.createElement('div');
+      proj.className = 'summary-project';
+      proj.textContent = r.project;
+      const task = document.createElement('div');
+      task.style.cssText = 'font-size:0.75rem;margin-top:1px';
+      task.textContent = r.task;
+      info.appendChild(proj);
+      info.appendChild(task);
+      
+      const hours = document.createElement('div');
+      hours.className = 'summary-hours';
+      hours.textContent = utils.fmtHM(r.total);
+      
+      row.appendChild(info);
+      row.appendChild(hours);
+      container.appendChild(row);
+    });
   }
   totalEl.textContent = utils.fmtHM(totalMs);
 }
@@ -231,23 +262,53 @@ function renderEntries(entries, containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
+  container.innerHTML = '';
   if (!entries.length) {
-    container.innerHTML = `<div class="empty-state">${chrome.i18n.getMessage('noRecords')}</div>`;
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = chrome.i18n.getMessage('noRecords');
+    container.appendChild(empty);
     return;
   }
 
   const displayEntries = entries.slice(0, 100);
-  container.innerHTML = displayEntries.map(e => `
-    <div class="entry">
-      <div class="entry-badge">${e.project}</div>
-      <div class="entry-info">
-        <div class="entry-task">${e.task}</div>
-        <div class="entry-meta">${utils.fmtDate(e.start)} · ${utils.fmtTime(e.start)}–${utils.fmtTime(e.end)}</div>
-      </div>
-      <div class="entry-duration">${utils.fmtDuration(e.duration)}</div>
-      <button class="btn-delete" data-id="${e.id}">✕</button>
-    </div>
-  `).join('');
+  displayEntries.forEach(e => {
+    const entry = document.createElement('div');
+    entry.className = 'entry';
+    
+    const badge = document.createElement('div');
+    badge.className = 'entry-badge';
+    badge.textContent = e.project;
+    
+    const info = document.createElement('div');
+    info.className = 'entry-info';
+    const task = document.createElement('div');
+    task.className = 'entry-task';
+    task.textContent = e.task;
+    const meta = document.createElement('div');
+    meta.className = 'entry-meta';
+    meta.textContent = `${utils.fmtDate(e.start)} · ${utils.fmtTime(e.start)}–${utils.fmtTime(e.end)}`;
+    info.appendChild(task);
+    info.appendChild(meta);
+    
+    const dur = document.createElement('div');
+    dur.className = 'entry-duration';
+    dur.textContent = utils.fmtDuration(e.duration);
+    
+    const del = document.createElement('button');
+    del.className = 'btn-delete';
+    del.textContent = '✕';
+    del.addEventListener('click', () => {
+      state.entries = state.entries.filter(ent => ent.id !== e.id);
+      saveState(() => render());
+    });
+    
+    entry.appendChild(badge);
+    entry.appendChild(info);
+    entry.appendChild(dur);
+    entry.appendChild(del);
+    container.appendChild(entry);
+  });
 
   if (entries.length > 100) {
     const moreMsg = chrome.i18n.getMessage('moreEntriesHidden', [(entries.length - 100).toString()]);
@@ -259,14 +320,6 @@ function renderEntries(entries, containerId) {
     moreDiv.textContent = moreMsg;
     container.appendChild(moreDiv);
   }
-
-  container.querySelectorAll('.btn-delete').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = Number(btn.dataset.id);
-      state.entries = state.entries.filter(e => e.id !== id);
-      saveState(() => render());
-    });
-  });
 }
 
 function switchTab(tab, event) {
