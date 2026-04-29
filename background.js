@@ -9,9 +9,20 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === 'startAlarm') {
-    chrome.alarms.create('timerTick', { periodInMinutes: 1 / 60 }); // every ~1 sec
+    chrome.alarms.create('timerTick', { periodInMinutes: 1 }); // minimum 1 minute in MV3
+    chrome.action.setBadgeText({ text: 'ON' });
+    chrome.action.setBadgeBackgroundColor({ color: '#c8f564' });
   }
   if (msg.action === 'stopAlarm') {
     chrome.alarms.clear('timerTick');
+    chrome.action.setBadgeText({ text: '' });
+  }
+});
+
+// En el inicio, verificar si hay un timer activo para restaurar el badge
+chrome.storage.local.get('tt_state', (res) => {
+  if (res.tt_state?.timer) {
+    chrome.action.setBadgeText({ text: 'ON' });
+    chrome.action.setBadgeBackgroundColor({ color: '#c8f564' });
   }
 });

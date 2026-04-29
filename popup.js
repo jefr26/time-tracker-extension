@@ -1,86 +1,43 @@
-// popup.js — Time Tracker Extension
+import { storage } from './js/storage.js';
+import { utils } from './js/utils.js';
+import { ui } from './js/ui.js';
+import { logger } from './js/logger.js';
 
 let state = { projects: ['General'], entries: [], timer: null };
 let timerInterval = null;
 let currentWeekOffset = 0;
 
-// ---- Storage ----
-function loadState(cb) {
-  chrome.storage.local.get('tt_state', (res) => {
-    if (res.tt_state) state = res.tt_state;
-    cb();
-  });
+// ---- Core Actions ----
+function saveState(cb) {
+  storage.save(state, cb);
 }
 
-function save(cb) {
-  chrome.storage.local.set({ tt_state: state }, cb);
-}
-
-// ---- Week helpers ----
-function getWeekBounds(offset = 0) {
-  const now = new Date();
-  const day = now.getDay();
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - ((day + 6) % 7) + offset * 7);
-  monday.setHours(0, 0, 0, 0);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  sunday.setHours(23, 59, 59, 999);
-  return { start: monday, end: sunday };
-}
-
-function isInWeek(ts, offset = 0) {
-  const { start, end } = getWeekBounds(offset);
-  return ts >= start.getTime() && ts <= end.getTime();
-}
-
-function weekLabel(offset) {
-  if (offset === 0) return chrome.i18n.getMessage('thisWeek');
-  if (offset === -1) return chrome.i18n.getMessage('lastWeek');
-  const { start, end } = getWeekBounds(offset);
-  const opts = { day: 'numeric', month: 'short' };
-  return `${start.toLocaleDateString(undefined, opts)} – ${end.toLocaleDateString(undefined, opts)}`;
-}
-
-// ---- Format ----
-function fmtDuration(ms) {
-  const s = Math.floor(ms / 1000);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sc = s % 60;
-  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`;
-}
-
-function fmtHM(ms) {
-  const totalMin = Math.floor(ms / 60000);
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  return `${h}h ${String(m).padStart(2,'0')}m`;
-}
-
-function fmtTime(ts) {
-  return new Date(ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-}
-
-function fmtDate(ts) {
-  return new Date(ts).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-}
-
-// ---- Timer ----
 function toggleTimer() {
-  if (state.timer) { stopTimer(); } else { startTimer(); }
+  if (state.timer) {
+    stopTimer();
+  } else {
+    startTimer();
+  }
 }
 
 function startTimer() {
-  const task = document.getElementById('taskInput').value.trim();
-  const project = document.getElementById('projectSelect').value;
-  if (!task) { document.getElementById('taskInput').focus(); return; }
+  const taskInput = document.getElementById('taskInput');
+  const projectSelect = document.getElementById('projectSelect');
+  const task = taskInput.value.trim();
+  const project = projectSelect.value;
+
+  if (!task) {
+    taskInput.focus();
+    return;
+  }
 
   state.timer = { task, project, start: Date.now() };
-  save(() => {
+  logger.log('Timer started', { task, project });
+  
+  saveState(() => {
     chrome.runtime.sendMessage({ action: 'startAlarm' });
     updateTimerUI();
-    document.getElementById('taskInput').value = '';
+    taskInput.value = '';
     startTimerTick();
   });
 }
@@ -90,13 +47,19 @@ function stopTimer() {
   clearInterval(timerInterval);
   timerInterval = null;
 
-  const duration = Date.now() - state.timer.start;
-  if (duration > 5000) {
-    addEntryToState(state.timer.task, state.timer.project, state.timer.start, Date.now(), duration);
+  const now = Date.now();
+  const duration = now - state.timer.start;
+  
+  logger.log('Timer stopped', { task: state.timer.task, duration });
+
+  if (duration > 5000) { // Min 5 seconds
+    addEntryToState(state.timer.task, state.timer.project, state.timer.start, now, duration);
+  } else {
+    logger.log('Entry discarded (too short)');
   }
 
   state.timer = null;
-  save(() => {
+  saveState(() => {
     chrome.runtime.sendMessage({ action: 'stopAlarm' });
     updateTimerUI();
     render();
@@ -115,21 +78,17 @@ function addEntryToState(task, project, start, end, duration) {
 }
 
 function addManualEntry() {
-  const task = document.getElementById('taskInput').value.trim();
-  const project = document.getElementById('projectSelect').value;
-  const timeStr = document.getElementById('manualTime').value.trim();
+  const taskInput = document.getElementById('taskInput');
+  const projectSelect = document.getElementById('projectSelect');
+  const manualTimeInput = document.getElementById('manualTime');
+  
+  const task = taskInput.value.trim();
+  const project = projectSelect.value;
+  const timeStr = manualTimeInput.value.trim();
 
-  if (!task) {
-    document.getElementById('taskInput').focus();
-    return;
-  }
+  if (!task) { taskInput.focus(); return; }
+  if (!timeStr) { manualTimeInput.focus(); return; }
 
-  if (!timeStr) {
-    document.getElementById('manualTime').focus();
-    return;
-  }
-
-  // Parse time (H:MM or just MM)
   let ms = 0;
   if (timeStr.includes(':')) {
     const [h, m] = timeStr.split(':').map(Number);
@@ -145,15 +104,15 @@ function addManualEntry() {
 
   const now = Date.now();
   addEntryToState(task, project, now - ms, now, ms);
+  logger.log('Manual entry added', { task, duration: ms });
 
-  document.getElementById('taskInput').value = '';
-  document.getElementById('manualTime').value = '';
+  taskInput.value = '';
+  manualTimeInput.value = '';
 
-  save(() => {
-    render();
-  });
+  saveState(() => render());
 }
 
+// ---- UI Updates ----
 function startTimerTick() {
   clearInterval(timerInterval);
   timerInterval = setInterval(updateElapsed, 1000);
@@ -163,7 +122,8 @@ function startTimerTick() {
 function updateElapsed() {
   if (!state.timer) return;
   const elapsed = Date.now() - state.timer.start;
-  document.getElementById('timerElapsed').textContent = fmtDuration(elapsed);
+  const el = document.getElementById('timerElapsed');
+  if (el) el.textContent = utils.fmtDuration(elapsed);
 }
 
 function updateTimerUI() {
@@ -171,29 +131,36 @@ function updateTimerUI() {
   const btn = document.getElementById('btnStart');
   const timerEl = document.getElementById('activeTimer');
 
-  btn.textContent = running ? '■' : '▶';
-  btn.classList.toggle('running', running);
-  timerEl.classList.toggle('visible', running);
+  if (btn) {
+    btn.textContent = running ? '■' : '▶';
+    btn.classList.toggle('running', running);
+  }
+  if (timerEl) timerEl.classList.toggle('visible', running);
 
   if (running) {
-    document.getElementById('timerTask').textContent = state.timer.task;
-    document.getElementById('timerProject').textContent = state.timer.project;
+    const taskEl = document.getElementById('timerTask');
+    const projectEl = document.getElementById('timerProject');
+    if (taskEl) taskEl.textContent = state.timer.task;
+    if (projectEl) projectEl.textContent = state.timer.project;
   }
 }
 
-// ---- Week nav ----
-function changeWeek(dir) {
-  currentWeekOffset += dir;
-  if (currentWeekOffset > 0) currentWeekOffset = 0;
-  const label = document.getElementById('weekRange');
-  if (label) label.textContent = weekLabel(currentWeekOffset);
-  render();
+function render() {
+  renderProjects();
+  renderWeeklySummary();
+  const weekEntries = state.entries.filter(e => utils.isInWeek(e.start, currentWeekOffset));
+  renderEntries(weekEntries, 'tab-week');
+  
+  const allTab = document.querySelector('.tab[data-tab="all"]');
+  if (allTab && allTab.classList.contains('active')) {
+    renderEntries(state.entries, 'tab-all');
+  }
 }
 
-// ---- Projects ----
 function renderProjects() {
   const sel = document.getElementById('projectSelect');
   const list = document.getElementById('projectsList');
+  if (!sel || !list) return;
 
   sel.innerHTML = state.projects.map(p => `<option value="${p}">${p}</option>`).join('');
 
@@ -217,19 +184,23 @@ function addProject() {
   if (!name || state.projects.includes(name)) return;
   state.projects.push(name);
   input.value = '';
-  save(() => renderProjects());
+  logger.log('Project added', name);
+  saveState(() => renderProjects());
 }
 
 function removeProject(name) {
   if (state.projects.length <= 1) return;
   state.projects = state.projects.filter(p => p !== name);
-  save(() => renderProjects());
+  logger.log('Project removed', name);
+  saveState(() => renderProjects());
 }
 
-// ---- Weekly summary ----
 function renderWeeklySummary() {
-  const weekEntries = state.entries.filter(e => isInWeek(e.start, currentWeekOffset));
+  const container = document.getElementById('weeklySummary');
+  const totalEl = document.getElementById('weekTotal');
+  if (!container || !totalEl) return;
 
+  const weekEntries = state.entries.filter(e => utils.isInWeek(e.start, currentWeekOffset));
   const groups = {};
   weekEntries.forEach(e => {
     const key = `${e.project}||${e.task}`;
@@ -240,7 +211,6 @@ function renderWeeklySummary() {
   const rows = Object.values(groups).sort((a, b) => b.total - a.total);
   const totalMs = weekEntries.reduce((s, e) => s + e.duration, 0);
 
-  const container = document.getElementById('weeklySummary');
   if (!rows.length) {
     container.innerHTML = `<div style="padding:12px 10px;color:var(--muted);font-size:0.72rem;text-align:center">${chrome.i18n.getMessage('noRecords')}</div>`;
   } else {
@@ -250,143 +220,169 @@ function renderWeeklySummary() {
           <div class="summary-project">${r.project}</div>
           <div style="font-size:0.75rem;margin-top:1px">${r.task}</div>
         </div>
-        <div class="summary-hours">${fmtHM(r.total)}</div>
+        <div class="summary-hours">${utils.fmtHM(r.total)}</div>
       </div>
     `).join('');
   }
-
-  document.getElementById('weekTotal').textContent = fmtHM(totalMs);
-}
-
-// ---- Entries ----
-function deleteEntry(id) {
-  state.entries = state.entries.filter(e => e.id !== id);
-  save(() => render());
+  totalEl.textContent = utils.fmtHM(totalMs);
 }
 
 function renderEntries(entries, containerId) {
   const container = document.getElementById(containerId);
+  if (!container) return;
+
   if (!entries.length) {
     container.innerHTML = `<div class="empty-state">${chrome.i18n.getMessage('noRecords')}</div>`;
     return;
   }
-  container.innerHTML = entries.map(e => `
+
+  const displayEntries = entries.slice(0, 100);
+  container.innerHTML = displayEntries.map(e => `
     <div class="entry">
       <div class="entry-badge">${e.project}</div>
       <div class="entry-info">
         <div class="entry-task">${e.task}</div>
-        <div class="entry-meta">${fmtDate(e.start)} · ${fmtTime(e.start)}–${fmtTime(e.end)}</div>
+        <div class="entry-meta">${utils.fmtDate(e.start)} · ${utils.fmtTime(e.start)}–${utils.fmtTime(e.end)}</div>
       </div>
-      <div class="entry-duration">${fmtDuration(e.duration)}</div>
+      <div class="entry-duration">${utils.fmtDuration(e.duration)}</div>
       <button class="btn-delete" data-id="${e.id}">✕</button>
     </div>
   `).join('');
 
+  if (entries.length > 100) {
+    const moreMsg = chrome.i18n.getMessage('moreEntriesHidden', [(entries.length - 100).toString()]);
+    const moreDiv = document.createElement('div');
+    moreDiv.style.textAlign = 'center';
+    moreDiv.style.padding = '10px';
+    moreDiv.style.fontSize = '0.7rem';
+    moreDiv.style.color = 'var(--muted)';
+    moreDiv.textContent = moreMsg;
+    container.appendChild(moreDiv);
+  }
+
   container.querySelectorAll('.btn-delete').forEach(btn => {
-    btn.addEventListener('click', () => deleteEntry(Number(btn.dataset.id)));
+    btn.addEventListener('click', () => {
+      const id = Number(btn.dataset.id);
+      state.entries = state.entries.filter(e => e.id !== id);
+      saveState(() => render());
+    });
   });
 }
 
-// ---- Tabs ----
 function switchTab(tab, event) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   if (event) event.target.classList.add('active');
-  document.getElementById(`tab-${tab}`).classList.add('active');
-  const weekEntries = state.entries.filter(e => isInWeek(e.start, currentWeekOffset));
+  const targetTab = document.getElementById(`tab-${tab}`);
+  if (targetTab) targetTab.classList.add('active');
+  
+  const weekEntries = state.entries.filter(e => utils.isInWeek(e.start, currentWeekOffset));
   if (tab === 'week') renderEntries(weekEntries, 'tab-week');
   if (tab === 'all') renderEntries(state.entries, 'tab-all');
 }
 
-// ---- Projects panel ----
-function toggleProjects() {
-  document.getElementById('projectsPanel').classList.toggle('open');
-}
-
-// ---- Open in tab ----
-function openTab() {
-  chrome.tabs.create({ url: chrome.runtime.getURL('tab.html') });
-}
-
-// ---- Render ----
-function applyTranslations() {
-  document.querySelectorAll('[data-i18n]').forEach(el => {
-    const key = el.dataset.i18n;
-    const msg = chrome.i18n.getMessage(key);
-    if (msg) el.textContent = msg;
-  });
-  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-    const key = el.dataset.i18nPlaceholder;
-    const msg = chrome.i18n.getMessage(key);
-    if (msg) el.placeholder = msg;
-  });
-  document.querySelectorAll('[data-i18n-title]').forEach(el => {
-    const key = el.dataset.i18nTitle;
-    const msg = chrome.i18n.getMessage(key);
-    if (msg) el.title = msg;
-  });
-  // Update lang attribute to reflect current locale
-  document.documentElement.lang = chrome.i18n.getUILanguage();
-}
-
-function render() {
-  renderProjects();
-  renderWeeklySummary();
-  const weekEntries = state.entries.filter(e => isInWeek(e.start, currentWeekOffset));
-  renderEntries(weekEntries, 'tab-week');
-  renderEntries(state.entries, 'tab-all');
-}
-
-// ---- Keyboard & Events ----
-document.addEventListener('DOMContentLoaded', () => {
-  // Common listeners
-  const btnStart = document.getElementById('btnStart');
-  if (btnStart) btnStart.addEventListener('click', toggleTimer);
-
-  const btnPrevWeek = document.getElementById('btnPrevWeek');
-  if (btnPrevWeek) btnPrevWeek.addEventListener('click', () => changeWeek(-1));
-
-  const btnNextWeek = document.getElementById('btnNextWeek');
-  if (btnNextWeek) btnNextWeek.addEventListener('click', () => changeWeek(1));
-
-  const btnAddProject = document.getElementById('btnAddProject');
-  if (btnAddProject) btnAddProject.addEventListener('click', addProject);
-
-  const btnAddManual = document.getElementById('btnAddManual');
-  if (btnAddManual) btnAddManual.addEventListener('click', addManualEntry);
-
-  document.querySelectorAll('.tab').forEach(tabBtn => {
-    tabBtn.addEventListener('click', (e) => switchTab(tabBtn.dataset.tab, e));
-  });
-
+function changeWeek(dir) {
+  currentWeekOffset += dir;
+  if (currentWeekOffset > 0) currentWeekOffset = 0;
   const label = document.getElementById('weekRange');
-  if (label) label.textContent = weekLabel(currentWeekOffset);
+  if (label) label.textContent = ui.weekLabel(currentWeekOffset);
+  render();
+}
 
-  // Popup specific
-  const btnToggleProjects = document.getElementById('btnToggleProjects');
-  if (btnToggleProjects) btnToggleProjects.addEventListener('click', toggleProjects);
+// ---- Initialization ----
+document.addEventListener('DOMContentLoaded', () => {
+  ui.applyTranslations();
+  document.documentElement.lang = chrome.i18n.getUILanguage();
 
-  const btnOpenTab = document.getElementById('btnOpenTab');
-  if (btnOpenTab) btnOpenTab.addEventListener('click', openTab);
+  storage.load((loadedState) => {
+    state = loadedState;
+    
+    // Bind Events
+    const btnStart = document.getElementById('btnStart');
+    if (btnStart) btnStart.addEventListener('click', toggleTimer);
 
-  const taskInput = document.getElementById('taskInput');
-  if (taskInput) {
-    taskInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter') toggleTimer();
+    const btnPrevWeek = document.getElementById('btnPrevWeek');
+    if (btnPrevWeek) btnPrevWeek.addEventListener('click', () => changeWeek(-1));
+
+    const btnNextWeek = document.getElementById('btnNextWeek');
+    if (btnNextWeek) btnNextWeek.addEventListener('click', () => changeWeek(1));
+
+    const btnAddProject = document.getElementById('btnAddProject');
+    if (btnAddProject) btnAddProject.addEventListener('click', addProject);
+
+    const btnAddManual = document.getElementById('btnAddManual');
+    if (btnAddManual) btnAddManual.addEventListener('click', addManualEntry);
+
+    document.querySelectorAll('.tab').forEach(tabBtn => {
+      tabBtn.addEventListener('click', (e) => switchTab(tabBtn.dataset.tab, e));
     });
-  }
 
-  const manualTime = document.getElementById('manualTime');
-  if (manualTime) {
-    manualTime.addEventListener('keydown', e => {
-      if (e.key === 'Enter') addManualEntry();
-    });
-  }
+    const btnToggleProjects = document.getElementById('btnToggleProjects');
+    if (btnToggleProjects) {
+        btnToggleProjects.addEventListener('click', () => {
+            document.getElementById('projectsPanel').classList.toggle('open');
+        });
+    }
 
-  loadState(() => {
-    applyTranslations();
+    const btnOpenTab = document.getElementById('btnOpenTab');
+    if (btnOpenTab) {
+        btnOpenTab.addEventListener('click', () => {
+            chrome.tabs.create({ url: chrome.runtime.getURL('tab.html') });
+        });
+    }
+
+    const taskInput = document.getElementById('taskInput');
+    if (taskInput) {
+      taskInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') toggleTimer();
+      });
+    }
+
+    const manualTime = document.getElementById('manualTime');
+    if (manualTime) {
+      manualTime.addEventListener('keydown', e => {
+        if (e.key === 'Enter') addManualEntry();
+      });
+    }
+
+    const weekRangeLabel = document.getElementById('weekRange');
+    if (weekRangeLabel) weekRangeLabel.textContent = ui.weekLabel(currentWeekOffset);
+
     render();
     updateTimerUI();
-    if (state.timer) startTimerTick();
+    if (state.timer) {
+      logger.log('Resuming timer UI', { task: state.timer.task });
+      startTimerTick();
+    }
+  });
+
+  // Sync state between popup and tabs
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.tt_state) {
+      const newState = changes.tt_state.newValue;
+      if (!newState) return;
+
+      // Only update if something relevant changed (to avoid unnecessary re-renders)
+      // Check if timer state changed
+      const timerChanged = JSON.stringify(state.timer) !== JSON.stringify(newState.timer);
+      const entriesChanged = state.entries.length !== newState.entries.length;
+      const projectsChanged = state.projects.length !== newState.projects.length;
+
+      state = newState;
+
+      if (timerChanged) {
+        updateTimerUI();
+        if (state.timer) {
+          startTimerTick();
+        } else {
+          clearInterval(timerInterval);
+          timerInterval = null;
+        }
+      }
+
+      if (entriesChanged || projectsChanged || timerChanged) {
+        render();
+      }
+    }
   });
 });

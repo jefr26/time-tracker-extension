@@ -19,5 +19,13 @@
   "nextWeekTitle": { "message": "Next week" },
   "openTabTitle": { "message": "Open in tab" },
   "startStopTimerTitle": { "message": "Start/Stop Timer" },
-  "formatHMTitle": { "message": "Format H:MM or M" }
+  "formatHMTitle": { "message": "Format H:MM or M" },
+  "moreEntriesHidden": {
+    "message": "+ $COUNT$ more entries hidden",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  }
 }
