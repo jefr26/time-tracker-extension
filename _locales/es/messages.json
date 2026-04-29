@@ -19,5 +19,13 @@
   "nextWeekTitle": { "message": "Semana siguiente" },
   "openTabTitle": { "message": "Abrir en pestaña" },
   "startStopTimerTitle": { "message": "Iniciar/Detener Cronómetro" },
-  "formatHMTitle": { "message": "Formato H:MM o M" }
+  "formatHMTitle": { "message": "Formato H:MM o M" },
+  "moreEntriesHidden": {
+    "message": "+ $COUNT$ entradas más ocultas",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  }
 }
